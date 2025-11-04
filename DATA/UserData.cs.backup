@@ -1,0 +1,66 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+using SocketGameProtool;
+using ConsoleApp3.Server;
+
+namespace ConsoleApp3.DATA
+{
+    internal class UserData
+    {
+        private MySqlConnection conn;
+        public UserData()
+        {
+            conn = new MySqlConnection("server=localhost;user=root;database=protobuf;port=3306;password=12345");
+            conn.Open();
+        }
+        private void ConnectMysql()
+        {
+            try 
+            {
+                conn = new MySqlConnection("server=localhost;user=root;database=protobuf;port=3306;password=12345");
+                conn.Open();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("数据库未连接");
+            }
+        }
+        public bool Logon(MainPack pack)
+        {
+            string username = pack.LoginPack.Username;
+            string password = pack.LoginPack.Password;
+            string sql = "INSERT INTO protobuf.userdata(username, password) VALUES(@username, @password)";
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                try
+                {
+                    conn.Open();
+                    cmd.Parameters.AddWithValue("@username", username);
+                    cmd.Parameters.AddWithValue("@password", password);
+                    cmd.ExecuteNonQuery();
+                    Console.WriteLine ("注册成功");
+                    return true; // 插入成功
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("注册失败，该用户名已被注册");
+                    return false; // 插入失败
+                }
+                finally
+                {
+                    if (conn.State == ConnectionState.Open)
+                    {
+                        conn.Close();
+                    }
+                }
+            }
+        }
+
+    }
+}
+        
