@@ -144,6 +144,20 @@ namespace ConsoleApp3.Server
                 return false;
             }
         }
+        public bool Login(MainPack pack) {
+            Console.WriteLine("Client.Logon called with username: " + pack.LoginPack?.Username);
+            if (userData != null)
+            {
+                bool result = userData.Login(pack);
+                Console.WriteLine("UserData.Logon returned: " + result);
+                return result;
+            }
+            else
+            {
+                Console.WriteLine("UserData is null, cannot perform login");
+                return false;
+            }
+        }
         
         private void CloseSocket()
         {

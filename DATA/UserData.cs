@@ -27,6 +27,60 @@ namespace ConsoleApp3.DATA
                 Console.WriteLine("Failed to initialize database connection: " + ex.Message);
             }
         }
+        public bool Login(MainPack pack)
+        {
+            // 检查数据库连接状态
+            if (conn == null)
+            {
+                Console.WriteLine("Database connection is null");
+                return false;
+            }
+            
+            string username = pack.LoginPack.Username;
+            string password = pack.LoginPack.Password;
+            string sql = "SELECT * FROM userdata WHERE username = @username AND password = @password";
+            
+            try
+            {
+                // 只在连接关闭时打开连接
+                if (conn.State != ConnectionState.Open)
+                {
+                    conn.Open();
+                    Console.WriteLine("Database connection opened");
+                }
+                
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@username", username);
+                    cmd.Parameters.AddWithValue("@password", password);
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            Console.WriteLine("User login successful");
+                            return true;
+                        }
+                        else
+                        {
+                            Console.WriteLine("User login failed: Username or password is incorrect");
+                            return false;
+                        }
+                    }
+                }
+            }
+            catch (MySqlException mysqlEx)
+            {
+                Console.WriteLine("MySQL Exception during login: " + mysqlEx.Message);
+                Console.WriteLine("Error Number: " + mysqlEx.Number);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("General Exception during login: " + ex.Message);
+                return false;
+            }
+           
+        }
         
         public bool Logon(MainPack pack)
         {
@@ -75,16 +129,7 @@ namespace ConsoleApp3.DATA
                 Console.WriteLine("General Exception during registration: " + ex.Message);
                 return false;
             }
-            finally
-            {
-                // 根据需要决定是否关闭连接，保持连接可以提高性能
-                // 但在实际应用中可能需要实现连接池
-                // if (conn.State == ConnectionState.Open)
-                // {
-                //     conn.Close();
-                //     Console.WriteLine("Database connection closed");
-                // }
-            }
+          
         }
         
         // 添加一个方法来测试数据库连接
