@@ -19,6 +19,8 @@ namespace ConsoleApp3.Controller
             {
                 UserController userController = new UserController();
                 controlDict.Add(userController._requestCode, userController);
+                RoomController roomController = new RoomController();
+                controlDict.Add(roomController._requestCode, roomController);
             }
             catch (Exception ex)
             {
@@ -32,6 +34,13 @@ namespace ConsoleApp3.Controller
                 this.server = server;
                 UserController userController = new UserController();
                 controlDict.Add(userController._requestCode, userController);
+                
+                RoomController roomController = new RoomController();
+                controlDict.Add(roomController._requestCode, roomController);
+                
+                GameCollector gameCollector = new GameCollector();
+                controlDict.Add(gameCollector._requestCode, gameCollector);
+                
                 Console.WriteLine("ControllerManager initialized successfully");
             }
             catch (Exception ex)

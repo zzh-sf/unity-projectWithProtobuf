@@ -7,11 +7,10 @@ using Google.Protobuf;
 using System.Net.Sockets;
 using System.Net;
 using ConsoleApp3.Controller;
-using SocketGameProtool;
 using MySql.Data.MySqlClient;
 using ConsoleApp3.DATA;
+using System.Security.Cryptography.X509Certificates;
 using SocketGameProtool;
-
 namespace ConsoleApp3.Server
 {
     class Server
@@ -20,7 +19,7 @@ namespace ConsoleApp3.Server
         private List<Client> clientList = new List<Client>();
         private ControllerManager controllerManager;
         private bool isRunning = false;
-
+        private List<Room> roomList = new List<Room>();
         public Server(int port)
         {
             try
@@ -171,6 +170,144 @@ namespace ConsoleApp3.Server
             }
             
             Console.WriteLine("Server stopped");
+        }
+        public MainPack CreateRoom(Client client, MainPack pack) 
+        {
+            try
+            {
+                // 检查玩家是否已经在房间中
+                if (client.GetRoom != null)
+                {
+                    pack.ReturnCode = ReturnCode.Fail;
+                    Console.WriteLine("Client is already in a room, cannot create new room");
+                    return pack;
+                }
+                
+                Room room = new Room(client, pack.RoomPac[0]);
+                roomList.Add(room);
+                
+                // 返回更新后的房间信息
+                pack.RoomPac.Clear();
+                pack.RoomPac.Add(room.RoomPack);
+                
+                // 添加玩家列表
+                foreach (PlayerPack p in room.GetPlayerInFo()) { 
+                    pack.PlayPack.Add(p);
+                }
+                
+                Console.WriteLine("Room created successfully. Room name: " + room.roomname + ", Total rooms: " + roomList.Count);
+                pack.ReturnCode = ReturnCode.Success;
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("Error creating room: " + ex.Message);
+                pack.ReturnCode = ReturnCode.Fail;
+                return pack;
+            }
+            return pack;
+        }
+        public MainPack FindRoom() {
+            MainPack pack = new MainPack();
+            pack.Actioncode = ActionCode.FindRoom;
+            try
+            {
+                if (roomList.Count == 0) { 
+                pack.ReturnCode= ReturnCode.Fail;
+                    return pack;
+                }
+                foreach (Room room in roomList)
+                {
+                    pack.Actioncode = ActionCode.FindRoom;
+                    pack.RoomPac.Add(room.RoomPack);
+                }
+                pack.ReturnCode = ReturnCode.Success;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error finding room: " + ex.Message);
+                pack.ReturnCode = ReturnCode.Fail;
+            }
+            return pack;
+        }
+        public MainPack JoinRoom(Client client, MainPack pack) 
+        {
+            // 检查玩家是否已经在房间中
+            if (client.GetRoom != null)
+            {
+                pack.ReturnCode = ReturnCode.Fail;
+                Console.WriteLine("Client is already in a room");
+                return pack;
+            }
+            
+            // 查找第一个可用的房间
+            foreach (Room r in roomList) {
+                if (r.state == 0 && r.clientList.Count < r.maxnum)
+                {
+                    r.Join(client);
+                    
+                    // 添加房间信息
+                    pack.RoomPac.Add(r.RoomPack);
+                    // 添加玩家列表
+                    foreach (PlayerPack p in r.GetPlayerInFo()) {
+                        pack.PlayPack.Add(p);
+                    }
+                    pack.ReturnCode = ReturnCode.Success;
+                    Console.WriteLine("Client joined room: " + r.roomname);
+                    return pack;
+                }
+            }
+            // 没有找到可用房间
+            pack.ReturnCode = ReturnCode.NotRoom;
+            Console.WriteLine("No available room found");
+            return pack;
+        }
+        public MainPack ExitRoom(Client client, MainPack pack)
+        {
+            if (client.GetRoom == null)
+            {
+                pack.ReturnCode = ReturnCode.Fail;
+                Console.WriteLine("Client is not in any room");
+                return pack;
+            }
+            client.GetRoom.Exit(this,client);
+            pack.ReturnCode = ReturnCode.Success;
+            Console.WriteLine("Client exited room");
+            return pack;
+        }
+        public void RemoveRoom(Room room) { 
+        roomList.Remove(room);
+          Console.WriteLine("Room removed: " + room.roomname);
+        }
+        public MainPack Chat(Client client, MainPack pack) {
+            // 检查玩家是否在房间中
+            if (client.GetRoom == null)
+            {
+                Console.WriteLine("Client is not in any room, cannot send chat message");
+                return null;
+            }
+            
+            // 创建新的消息包，避免修改原始数据
+            MainPack chatPack = new MainPack();
+            chatPack.Actioncode = ActionCode.Chat;
+            chatPack.Str = client.userName + ":" + pack.Str;
+            
+            // 广播给房间内所有玩家
+            client.GetRoom.Broadcast(chatPack);
+            
+            Console.WriteLine("Chat message broadcasted: " + chatPack.Str);
+            return null;  // 聊天消息只需要广播，不需要返回给发送者
+        }
+        public MainPack StartGame(Client client, MainPack pack) { 
+            // 检查玩家是否在房间中
+            if (client.GetRoom == null)
+            {
+                Console.WriteLine("Client is not in any room, cannot start game");
+                return null;
+            }
+            
+            ReturnCode result = client.GetRoom.StartGame(client);
+            Console.WriteLine("Game start request processed, result: " + result);
+            return null;  // 游戏开始通过广播通知，不需要返回特定响应
         }
     }
 }

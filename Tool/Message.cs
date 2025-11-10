@@ -87,8 +87,13 @@ namespace ConsoleApp3.Tool
         {
             try
             {
+                Console.WriteLine("PackData called - ActionCode: " + pack.Actioncode + 
+                                ", PlayPack count before serialization: " + pack.PlayPack.Count);
+                
                 // 序列化消息体
                 byte[] data = pack.ToByteArray();
+                
+                Console.WriteLine("Protobuf serialized to " + data.Length + " bytes");
                 
                 // 构造消息长度字段
                 int len = data.Length;
@@ -99,11 +104,14 @@ namespace ConsoleApp3.Tool
                 lenBytes.CopyTo(newBuffer, 0);
                 data.CopyTo(newBuffer, 4);
                 
+                Console.WriteLine("Final packet size: " + newBuffer.Length + " bytes (4 bytes length + " + len + " bytes data)");
+                
                 return newBuffer;
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error packing data: " + ex.Message);
+                Console.WriteLine("Stack trace: " + ex.StackTrace);
                 return new byte[0];
             }
         }

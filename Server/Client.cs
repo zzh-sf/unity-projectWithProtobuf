@@ -17,7 +17,16 @@ namespace ConsoleApp3.Server
         Message message;
         UserData userData;
         Server server;
-        
+        public string userName;
+        public UserInfo userInfo { get; set; }
+        public Room GetRoom {
+            get;set;
+        }
+        public class UserInfo {
+            public string UserName { set; get; }
+            public int HP { set; get; }
+            public PosPack Pos { get; set; }
+        }
         public UserData GetUserData
         {
             get { return userData; }
@@ -27,6 +36,7 @@ namespace ConsoleApp3.Server
         {
             message = new Message();
             userData = new UserData();
+            userInfo = new UserInfo();  // 初始化 userInfo
             _socket = socket;
             server = null; // 明确初始化为null
             StartReceiving();
@@ -106,13 +116,36 @@ namespace ConsoleApp3.Server
             
             try
             {
+                // 输出详细的消息信息
+                Console.WriteLine("Sending message - ActionCode: " + pack.Actioncode + 
+                                ", RequestCode: " + pack.RequestCode + 
+                                ", ReturnCode: " + pack.ReturnCode + 
+                                ", PlayPack count: " + pack.PlayPack.Count + 
+                                ", Str: " + (pack.Str ?? "null"));
+                
+                // 如果有玩家列表，输出每个玩家的详细信息
+                if (pack.PlayPack.Count > 0)
+                {
+                    Console.WriteLine("  Players in pack:");
+                    foreach (var player in pack.PlayPack)
+                    {
+                        Console.WriteLine("    - " + player.PlayerName + " (ID: " + player.PlayerId + 
+                                        ", HP: " + player.Hp + 
+                                        ", Pos: " + (player.PosPack != null ? 
+                                        "(" + player.PosPack.PosX + ", " + player.PosPack.PosY + ")" : "null") + ")");
+                    }
+                }
+                
                 byte[] data = Message.PackData(pack);
+                Console.WriteLine("Serialized to " + data.Length + " bytes");
+                
                 int bytesSent = _socket.Send(data);
-                Console.WriteLine("Response sent to client: " + pack.ReturnCode + " (" + bytesSent + " bytes)");
+                Console.WriteLine("Successfully sent " + bytesSent + " bytes to " + userName);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Failed to send data: " + ex.Message);
+                Console.WriteLine("Stack trace: " + ex.StackTrace);
             }
         }
         
@@ -135,21 +168,31 @@ namespace ConsoleApp3.Server
             if (userData != null)
             {
                 bool result = userData.Logon(pack);
+                if (result)
+                {
+                    userName = pack.LoginPack?.Username;  // 注册成功后保存用户名
+                    Console.WriteLine("User registered successfully: " + userName);
+                }
                 Console.WriteLine("UserData.Logon returned: " + result);
                 return result;
             }
             else
             {
-                Console.WriteLine("UserData is null, cannot perform login");
+                Console.WriteLine("UserData is null, cannot perform registration");
                 return false;
             }
         }
         public bool Login(MainPack pack) {
-            Console.WriteLine("Client.Logon called with username: " + pack.LoginPack?.Username);
+            Console.WriteLine("Client.Login called with username: " + pack.LoginPack?.Username);
             if (userData != null)
             {
                 bool result = userData.Login(pack);
-                Console.WriteLine("UserData.Logon returned: " + result);
+                if (result)
+                {
+                    userName = pack.LoginPack?.Username;  // 登录成功后保存用户名
+                    Console.WriteLine("User logged in successfully: " + userName);
+                }
+                Console.WriteLine("UserData.Login returned: " + result);
                 return result;
             }
             else
@@ -163,6 +206,13 @@ namespace ConsoleApp3.Server
         {
             try
             {
+                // 先处理房间退出逻辑，避免递归
+                if (GetRoom != null && server != null) { 
+                    Room tempRoom = GetRoom;
+                    GetRoom = null;  // 先置空避免递归
+                    tempRoom.Exit(server, this);
+                }
+                
                 if (_socket != null && _socket.Connected)
                 {
                     _socket.Shutdown(SocketShutdown.Both);
